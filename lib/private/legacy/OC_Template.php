@@ -106,7 +106,8 @@ class OC_Template extends \OC\Template\Base {
 			// so to make sure this scripts/styles here are loaded first we put all core scripts first
 			// check lib/public/Util.php
 			//OC_Util::addStyle('css-variables', null, true);
-			//OC_Util::addStyle('server', null, true);
+			OC_Util::addStyle('server', 'core-server.css', true);
+			OC_Util::addHeader('link', ['rel' => 'stylesheet', 'href' => '/dist/core-server.css'], null, true);
 
 			// include common nextcloud webpack bundle
 			Util::addScript('core', 'common');
