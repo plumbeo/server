@@ -47,6 +47,7 @@ use Sabre\DAV\IFile;
 use Sabre\DAV\PropFind;
 use Sabre\DAV\PropPatch;
 use Sabre\DAV\ServerPlugin;
+use Sabre\DAV\Server;
 use Sabre\DAV\Tree;
 use Sabre\HTTP\RequestInterface;
 use Sabre\HTTP\ResponseInterface;
@@ -80,66 +81,28 @@ class FilesPlugin extends ServerPlugin {
 	public const SUBFOLDER_COUNT_PROPERTYNAME = '{http://nextcloud.org/ns}contained-folder-count';
 	public const SUBFILE_COUNT_PROPERTYNAME = '{http://nextcloud.org/ns}contained-file-count';
 
-	/**
-	 * Reference to main server object
-	 *
-	 * @var \Sabre\DAV\Server
-	 */
-	private $server;
-
-	/**
-	 * @var Tree
-	 */
-	private $tree;
-
-	/**
-	 * @var IUserSession
-	 */
-	private $userSession;
+	/** Reference to main server object */
+	private Server $server;
+	private Tree $tree;
+	private IUserSession $userSession;
 
 	/**
 	 * Whether this is public webdav.
 	 * If true, some returned information will be stripped off.
-	 *
-	 * @var bool
 	 */
-	private $isPublic;
+	private bool $isPublic;
+	private bool $downloadAttachment;
+	private IConfig $config;
+	private IRequest $request;
+	private IPreview $previewManager;
 
-	/**
-	 * @var bool
-	 */
-	private $downloadAttachment;
-
-	/**
-	 * @var IConfig
-	 */
-	private $config;
-
-	/**
-	 * @var IRequest
-	 */
-	private $request;
-
-	/**
-	 * @var IPreview
-	 */
-	private $previewManager;
-
-	/**
-	 * @param Tree $tree
-	 * @param IConfig $config
-	 * @param IRequest $request
-	 * @param IPreview $previewManager
-	 * @param bool $isPublic
-	 * @param bool $downloadAttachment
-	 */
 	public function __construct(Tree $tree,
 								IConfig $config,
 								IRequest $request,
 								IPreview $previewManager,
 								IUserSession $userSession,
-								$isPublic = false,
-								$downloadAttachment = true) {
+								bool $isPublic = false,
+								bool $downloadAttachment = true) {
 		$this->tree = $tree;
 		$this->config = $config;
 		$this->request = $request;
@@ -157,10 +120,9 @@ class FilesPlugin extends ServerPlugin {
 	 *
 	 * This method should set up the required event subscriptions.
 	 *
-	 * @param \Sabre\DAV\Server $server
 	 * @return void
 	 */
-	public function initialize(\Sabre\DAV\Server $server) {
+	public function initialize(Server $server) {
 		$server->xml->namespaceMap[self::NS_OWNCLOUD] = 'oc';
 		$server->xml->namespaceMap[self::NS_NEXTCLOUD] = 'nc';
 		$server->protectedProperties[] = self::FILEID_PROPERTYNAME;
@@ -343,7 +305,7 @@ class FilesPlugin extends ServerPlugin {
 				);
 			});
 
-			$propFind->handle(self::OCM_SHARE_PERMISSIONS_PROPERTYNAME, function () use ($node, $httpRequest) {
+			$propFind->handle(self::OCM_SHARE_PERMISSIONS_PROPERTYNAME, function () use ($node, $httpRequest): ?string {
 				$user = $this->userSession->getUser();
 				if ($user === null) {
 					return null;
@@ -355,11 +317,11 @@ class FilesPlugin extends ServerPlugin {
 				return json_encode($ocmPermissions);
 			});
 
-			$propFind->handle(self::GETETAG_PROPERTYNAME, function () use ($node) {
+			$propFind->handle(self::GETETAG_PROPERTYNAME, function () use ($node): string {
 				return $node->getETag();
 			});
 
-			$propFind->handle(self::OWNER_ID_PROPERTYNAME, function () use ($node) {
+			$propFind->handle(self::OWNER_ID_PROPERTYNAME, function () use ($node): ?string {
 				$owner = $node->getOwner();
 				if (!$owner) {
 					return null;
@@ -367,7 +329,7 @@ class FilesPlugin extends ServerPlugin {
 					return $owner->getUID();
 				}
 			});
-			$propFind->handle(self::OWNER_DISPLAY_NAME_PROPERTYNAME, function () use ($node) {
+			$propFind->handle(self::OWNER_DISPLAY_NAME_PROPERTYNAME, function () use ($node): ?string {
 				$owner = $node->getOwner();
 				if (!$owner) {
 					return null;
@@ -379,14 +341,14 @@ class FilesPlugin extends ServerPlugin {
 			$propFind->handle(self::HAS_PREVIEW_PROPERTYNAME, function () use ($node) {
 				return json_encode($this->previewManager->isAvailable($node->getFileInfo()));
 			});
-			$propFind->handle(self::SIZE_PROPERTYNAME, function () use ($node) {
+			$propFind->handle(self::SIZE_PROPERTYNAME, function () use ($node): int {
 				return $node->getSize();
 			});
 			$propFind->handle(self::MOUNT_TYPE_PROPERTYNAME, function () use ($node) {
 				return $node->getFileInfo()->getMountPoint()->getMountType();
 			});
 
-			$propFind->handle(self::SHARE_NOTE, function () use ($node, $httpRequest) {
+			$propFind->handle(self::SHARE_NOTE, function () use ($node, $httpRequest): ?string {
 				$user = $this->userSession->getUser();
 				if ($user === null) {
 					return null;
@@ -516,10 +478,7 @@ class FilesPlugin extends ServerPlugin {
 			if (empty($etag)) {
 				return false;
 			}
-			if ($node->setEtag($etag) !== -1) {
-				return true;
-			}
-			return false;
+			return $node->setEtag($etag) !== -1;
 		});
 		$propPatch->handle(self::CREATIONDATE_PROPERTYNAME, function ($time) use ($node) {
 			if (empty($time)) {
