@@ -152,14 +152,21 @@ class OC_Files {
 				$fileSize = 0;
 				foreach ($files as $file) {
 					$fileInfo = \OC\Files\Filesystem::getFileInfo($dir . '/' . $file);
-					$fileSize += $fileInfo->getSize();
-					$fileInfos[] = $fileInfo;
+					if ($fileInfo) {
+						$fileSize += $fileInfo->getSize();
+						$fileInfos[] = $fileInfo;
+					}
 				}
 				$numberOfFiles = self::getNumberOfFiles($fileInfos);
 			} elseif ($getType === self::ZIP_DIR) {
 				$fileInfo = \OC\Files\Filesystem::getFileInfo($dir . '/' . $files);
-				$fileSize = $fileInfo->getSize();
-				$numberOfFiles = self::getNumberOfFiles([$fileInfo]);
+				if ($fileInfo) {
+					$fileSize = $fileInfo->getSize();
+					$numberOfFiles = self::getNumberOfFiles([$fileInfo]);
+				} else {
+					$fileSize = 0;
+					$numberOfFiles = 0;
+				}
 			}
 
 			$streamer = new Streamer(\OC::$server->getRequest(), $fileSize, $numberOfFiles);
