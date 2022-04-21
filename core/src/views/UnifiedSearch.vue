@@ -84,7 +84,7 @@
 			<EmptyContent v-else-if="isValidQuery" icon="icon-search">
 				<Highlight v-if="triggered" :text="t('core', 'No results for {query}', { query })" :search="query" />
 				<div v-else>
-					{{ t('core', 'Press enter to start searching') }}
+					{{ t('core', 'Press Enter to start searching') }}
 				</div>
 			</EmptyContent>
 
